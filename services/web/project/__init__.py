@@ -6,7 +6,7 @@ from datetime import datetime
 import mysql.connector
 from .generator import Generator
 import threading
-
+from random import randint
 
 app = Flask(__name__)
 
@@ -45,27 +45,14 @@ def add_user(count):
 
 g_db = None
 
-@app.route("/test")
-def test():
-    global g_db
-    if g_db == None or not g_db.is_connected():
-        g_db = mysql.connector.connect(host="db", user="root", password="root", database="db")
-
-    gen = Generator()
-    user = gen.generate_user()
-
-    sql = "INSERT INTO users (birth_day,registration_date,user_login,user_email,firstname,surname,patronymic,sex,job_position,description) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
-    val = (user["birth"], user["reg"], user["login"], user["mail"], user["name"], user["surname"], user["patronymic"], user["sex"], user["job"], user["descr"])
-
-    cursor = g_db.cursor()
-    cursor.execute(sql, val)
-    g_db.commit()
-
-    return "OK"
-
 @app.route("/slow")
 def slow_query():
     with mysql.connector.connect(host="db", user="root", password="root", database="db") as db:
-        sql = "select count(*) from users;"
+        sql = [ 
+               "select * from users  Limit 900000;",
+               "select * from users  Limit 1100000;",
+               "select * from users  Limit 1500000;",
+              ]
         cursor = db.cursor()
-        cursor.execute(sql, val)
+        cursor.execute(sql[randint(0, len(sql)-1)])
+    return 'OK'
