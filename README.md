@@ -14,12 +14,13 @@ Database optimization
 git clone https://github.com/god-of-north/highload-homework-15.git
 cd highload-homework-15
 docker-compose build
+docker-compose -f docker-compose.graylog.yml build
 ```
 
 #### Generate data for DB
 
 ```
-docker-compose run
+docker-compose up
 curl -X GET http://localhost:5050/add/100000
 ```
 
@@ -72,4 +73,55 @@ Logstash parse example
 ```
 
 Kibana dashboard example
+
+
 ![docker compose network diagram](/assets/kibana.png)
+
+## Test Graylog
+
+### Running
+To run the Graylog containers:
+```
+docker-compose -f docker-compose.graylog.yml up
+```
+
+### Setting Up
+
+Open Graylog by the link http://localhost:9000/
+
+Graylog creds:
+- Login: **admin**
+- Password: **password**
+
+#### Install Content Pack
+
+MySQL Slow Query Log GROK pattern for Graylog are taken from https://github.com/zionio/graylog_grok_mysqlslowquery
+
+Upload it to System -> Content Packs
+
+
+![Mysql slow query GROK](images/6f773f83a2f1a53eabecac80135610a75bdf6f6197d2878d88e28adb85cb6e62.png)  
+
+
+#### Add Inputs
+
+Add the **Beats** input in System -> Inputs
+
+
+![Input](images/c09929e06972d014e548fcd293c593a8f038d59610d24a3470b39e7d8cc5916d.png)  
+
+
+Then add ```%{MYSQLSLOWQUERYLOG}``` pattern as Extractor
+
+
+![Extractor](images/d39d917a0cdadc8ab101efdd16c8d50904497683424c8dbe0b3eae3be367ec88.png)  
+
+
+#### Test
+
+To run slow query just call ```localhost:5050/slow```
+```
+curl -X GET http://localhost:5050/slow
+```
+
+![Simple Dashboard](images/40367fca85cf7b1fc296f432b8e1be19c4edbec0604bde6d8bdfeb8718fa164c.png)  

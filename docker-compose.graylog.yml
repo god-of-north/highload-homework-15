@@ -1,0 +1,78 @@
+version: '2'
+
+services:
+  web:
+    build:
+      context: ./services/web
+      dockerfile: Dockerfile
+    environment:
+      FLASK_APP: project/__init__.py
+      SQL_HOST: db
+      SQL_PORT: 3306
+      APP_FOLDER: /home/app/web
+    command: gunicorn --bind 0.0.0.0:5000 manage:app -w 4
+    ports:
+      - 5050:5000
+    depends_on:
+      - db
+
+  db:
+    image: mysql:8.0
+    environment:
+      MYSQL_DATABASE: 'db'
+      MYSQL_USER: 'user'
+      MYSQL_PASSWORD: 'qwerty'
+      MYSQL_ROOT_PASSWORD: 'root'
+    command: --slow_query_log=on --long_query_time=5 --slow_query_log_file=slow.log
+    ports:
+      - 3306:3306
+    volumes:
+      - ./scripts/table.sql:/docker-entrypoint-initdb.d/1.sql
+      - ./data/mysql:/var/lib/mysql
+
+  elasticsearch:
+    image: elasticsearch:7.16.1
+    volumes:
+      - ./data/elasticsearch-graylog/data:/usr/share/elasticsearch/data:z
+    environment:
+      cluster.name: graylog
+      discovery.type: single-node
+      ES_JAVA_OPTS: "-Xmx256m -Xms256m"
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+
+  graylog:
+    image: graylog/graylog:4.2.4
+    environment:
+      GRAYLOG_PASSWORD_SECRET: Bgw7mYROifuwMCojIcuQ0PYCiuwtOWNSIQBV6fbIfNIzpFFxKrVcRDOxJOPBmjHPhOA5uT928Ll9LlfpPEWxsy9a4VSgZebo
+      GRAYLOG_ROOT_PASSWORD_SHA2: 5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8
+      GRAYLOG_WEB_ENDPOINT_URI: http://127.0.0.1:9000/api
+      GRAYLOG_MONGODB_URI: mongodb://mongodb.service/graylog
+      GRAYLOG_MONGODB_MAX_CONNECTIONS: 100
+      GRAYLOG_MONGODB_THREADS_ALLOWED_TO_BLOCK_MULTIPLIER: 5
+      GRAYLOG_ELASTICSEARCH_CLUSTER_NAME: graylog
+    volumes:
+      - ./data/graylog/data:/opt/graylog/data
+      - ./data/graylog/plugin/:/opt/graylog/plugin/
+      - ./data/graylog/graylog_journal:/usr/share/graylog/data/journal
+      - ./data/graylog/config:/usr/share/graylog/config
+      - ./services/graylog/log4j2.xml:/usr/share/graylog/data/config/log4j2.xml
+      - ./services/graylog/graylog.conf:/usr/share/graylog/data/config/graylog.conf
+    links:
+      - "elasticsearch:elasticsearch"
+      - "mongodb:mongodb.service"
+    ports:
+      - 9000:9000
+      - 12201:12201/udp
+      - 1514:1514
+      - 5044:5044
+
+  filebeat:
+    image: prameswar/filebeat
+    volumes:
+      - ./services/filebeat/config-graylog:/etc/filebeat
+      - ./data/mysql/slow.log:/logs/slow.log
+    depends_on:
+      - elasticsearch
+      - graylog
